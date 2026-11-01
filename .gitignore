@@ -1,0 +1,8 @@
+__pycache__/
+.venv/
+dist/
+stick-baseline*.json
+launcher/.gradle/
+launcher/local.properties
+launcher/**/build/
+audit/
