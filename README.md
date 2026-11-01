@@ -8,9 +8,10 @@ device-tested. Package mutation and Home-button replacement are unverified.
 
 ## Download debug APKs
 
-- [Firecube launcher 0.1.0](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.1.0/firecube-launcher-0.1.0-debug.apk)
+- [Firecube launcher 0.2.0](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.2.0/firecube-launcher-0.2.0-debug.apk)
 - [Recovery-test app 0.1.0](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.1.0/firecube-recovery-test-0.1.0-debug.apk)
-- [SHA-256 checksums](downloads/v0.1.0/SHA256SUMS)
+- [Launcher SHA-256 checksum](downloads/v0.2.0/SHA256SUMS)
+- [Recovery-test SHA-256 checksum](downloads/v0.1.0/SHA256SUMS)
 
 These are debug-signed prototypes, not production releases. Both target API 35
 with minimum API 22 and have verified v1 signatures for Android 5.1 compatibility.

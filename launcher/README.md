@@ -5,8 +5,10 @@ user's Netflix, YouTube (both known identifiers), Paramount+, Hulu, Max, Disney+
 Plex and Peacock choices. Only installed launchable apps are shown; identifiers
 can vary. All apps discovers other entries. Hold Select to change favorites.
 No Internet, microphone, accessibility, usage access, or background-service
-permissions are requested. No icon loading, wallpaper editing, custom ordering,
-or settings import/export is implemented in this prototype.
+permissions are requested. Version 0.2.0 adds cached installed app banners/icons, a four-column grid, a
+compact clock/date header and smaller navigation controls. Artwork falls back to
+the installed app icon when no TV banner is supplied. Wallpaper editing, custom
+ordering and settings import/export are not yet implemented.
 
 Build with JDK 17 or 21, Android SDK platform 35 and build-tools 35.0.0. Set
 ANDROID_HOME or local.properties to the SDK path. Run:
