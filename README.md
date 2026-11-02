@@ -8,9 +8,9 @@ device-tested. Package mutation and Home-button replacement are unverified.
 
 ## Download debug APKs
 
-- [Firecube launcher 0.2.0](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.2.0/firecube-launcher-0.2.0-debug.apk)
+- [Firecube launcher 0.4.0](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.4.0/firecube-launcher-0.4.0-debug.apk)
 - [Recovery-test app 0.1.0](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.1.0/firecube-recovery-test-0.1.0-debug.apk)
-- [Launcher SHA-256 checksum](downloads/v0.2.0/SHA256SUMS)
+- [Launcher/helper SHA-256 checksums](downloads/v0.4.0/SHA256SUMS)
 - [Recovery-test SHA-256 checksum](downloads/v0.1.0/SHA256SUMS)
 
 These are debug-signed prototypes, not production releases. Both target API 35
@@ -155,3 +155,30 @@ safety, default-home behavior or stock-launcher recovery. This release does not
 remove Alexa, disable existing apps, replace Fire OS, or authorize disabling
 Amazon home. Full avoidance of Amazon's home screen remains an unverified
 firmware capability, not a promised feature. Do not root or flash this device.
+
+
+## Version 0.4.0: design and next device test
+
+The launcher adds Midnight, Forest and Plum color themes, a remote-editable home
+heading, selected-navigation styling, coordinated focus rings and elevation, a
+focused-app caption, and app-information access from the long-press menu. Existing
+favorites and settings remain in place on a same-signer `adb install -r` update.
+Theme and heading now round-trip with exported settings; older exports use defaults.
+These UI changes are build/lint validated, not yet physically tested on the Stick.
+
+[Download Windows helper ZIP](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.4.0/firecube-windows-0.4.0.zip)
+
+Extract the helper and double-click `Start-Firecube.cmd`. Locate official ADB and
+enter the connected device identifier. **Test disposable app disable/enable…**
+shows the exact commands and requires typing `TEST PROBE`; cancelling performs no
+mutation. Install the separately supplied recovery-test APK first. This feature
+never disables Amazon home, Alexa, existing apps or streaming packages. It locks
+the device fields during the test and saves a durable audit. Share the resulting
+JSONL log after reviewing its device address. Do not treat a successful ordinary
+app test as permission to disable system apps. Windows execution is still pending.
+
+See [observed firmware compatibility](docs/device-compatibility.md) and the
+[device test walkthrough](docs/next-steps.md). No modern default-home command is
+advertised in the supplied Fire OS 5 pm usage. The Home button still opens Amazon
+home according to the user's physical-device test. No claim of full replacement
+is made, and no stock-launcher-disable instructions are supplied.

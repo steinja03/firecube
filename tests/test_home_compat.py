@@ -19,3 +19,10 @@ class HomeCompatibilityTests(unittest.TestCase):
             result = summarize({"home_resolution": {"ok": True, "output": output}})
             self.assertIsNone(result["resolved_home_component"])
             self.assertFalse(result["pm_set_home_advertised"])
+
+    def test_usage_after_error_is_syntax_evidence_only(self):
+        result = summarize({"package_manager_help": {
+            "ok": False, "output": "Error: unknown command 'help'\nusage: pm list packages\n  pm enable PACKAGE\n  pm disable-user [--user USER_ID] PACKAGE\n"}})
+        self.assertTrue(result["pm_disable_user_advertised"])
+        self.assertFalse(result["pm_set_home_advertised"])
+        self.assertFalse(result["recovery_verified"])

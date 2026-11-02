@@ -8,7 +8,6 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.drawable.Drawable
 import android.util.LruCache
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -16,6 +15,8 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import android.text.InputFilter
+import android.net.Uri
 import java.util.concurrent.Executors
 import org.json.JSONArray
 import org.json.JSONObject
@@ -34,6 +35,15 @@ class MainActivity : Activity() {
     private var showingHidden = false
     private var visibleIds: List<String> = emptyList()
     private var focusedPackage: String? = null
+    private var focusCaption: TextView? = null
+    private data class Palette(val top: String, val bottom: String, val card: String,
+        val focused: String, val accent: String)
+    private val palettes = listOf(
+        Palette("#111D35", "#070B15", "#19263D", "#263F61", "#A7D6FF"),
+        Palette("#20362F", "#09140F", "#1D332B", "#2D5243", "#ADE8CD"),
+        Palette("#35263A", "#110C19", "#302039", "#51375A", "#E6B8E8")
+    )
+    private fun palette() = palettes[prefs.getInt("theme", 0).coerceIn(0, palettes.lastIndex)]
     private data class App(val id: String, val label: String, val intent: Intent)
     private val initialFavorites = setOf(
         "com.netflix.ninja", "com.amazon.firetv.youtube", "org.chromium.youtube_apk",
@@ -88,7 +98,8 @@ class MainActivity : Activity() {
         val options = arrayOf(
             if (favorite) "Remove from favorites" else "Add to favorites",
             "Move earlier", "Move later",
-            if (app.id in hidden()) "Show in Firecube" else "Hide in Firecube (does not disable app)"
+            if (app.id in hidden()) "Show in Firecube" else "Hide in Firecube (does not disable app)",
+            "App information"
         )
         AlertDialog.Builder(this).setTitle(app.label).setItems(options) { _, choice ->
             when (choice) {
@@ -111,6 +122,10 @@ class MainActivity : Activity() {
                     if (!selected.remove(app.id)) selected.add(app.id)
                     prefs.edit().putStringSet("hidden", selected).apply()
                 }
+                4 -> {
+                    launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + app.id)))
+                    return@setItems
+                }
             }
             focusedPackage = app.id; render()
         }.setNegativeButton("Cancel", null).show()
@@ -118,7 +133,8 @@ class MainActivity : Activity() {
 
     private fun settingsMenu() {
         val choices = arrayOf("Grid columns", "Toggle clock", "Toggle app labels", "Toggle focus animation",
-            "Manage hidden apps", "Export settings", "Import settings", "Android home settings", "Device settings")
+            "Manage hidden apps", "Export settings", "Import settings", "Android home settings", "Device settings",
+            "Color theme", "Home heading")
         AlertDialog.Builder(this).setTitle("Your home").setItems(choices) { _, choice ->
             when (choice) {
                 0 -> AlertDialog.Builder(this).setTitle("Columns")
@@ -139,6 +155,22 @@ class MainActivity : Activity() {
                     .setPositiveButton("Open") { _, _ -> launch(Intent(Settings.ACTION_HOME_SETTINGS)) }
                     .setNegativeButton("Cancel", null).show()
                 8 -> launch(Intent(Settings.ACTION_SETTINGS))
+                9 -> AlertDialog.Builder(this).setTitle("Color theme")
+                    .setSingleChoiceItems(arrayOf("Midnight", "Forest", "Plum"), prefs.getInt("theme", 0)) { dialog, index ->
+                        prefs.edit().putInt("theme", index).apply(); dialog.dismiss(); render()
+                    }.setNegativeButton("Cancel", null).show()
+                10 -> {
+                    val input = EditText(this).apply {
+                        setSingleLine(true); filters = arrayOf(InputFilter.LengthFilter(48))
+                        setText(prefs.getString("heading", "Your home. Your way."))
+                        setSelectAllOnFocus(true)
+                    }
+                    AlertDialog.Builder(this).setTitle("Home heading").setView(input)
+                        .setPositiveButton("Save") { _, _ ->
+                            val heading = input.text.toString().trim().take(48)
+                            prefs.edit().putString("heading", heading.ifBlank { "Your home. Your way." }).apply(); render()
+                        }.setNegativeButton("Cancel", null).show()
+                }
             }
         }.setNegativeButton("Close", null).show()
     }
@@ -159,6 +191,7 @@ class MainActivity : Activity() {
                 val json = JSONObject().put("version", 1)
                     .put("favorites", JSONArray(favorites().toList())).put("hidden", JSONArray(hidden().toList()))
                     .put("order", JSONArray(order())).put("columns", prefs.getInt("columns", 4))
+                    .put("theme", prefs.getInt("theme", 0)).put("heading", prefs.getString("heading", "Your home. Your way."))
                 for (key in listOf("clock", "labels", "animation")) json.put(key, prefs.getBoolean(key, true))
                 val output = contentResolver.openOutputStream(uri, "wt") ?: error("No output stream")
                 output.bufferedWriter().use { it.write(json.toString(2)) }
@@ -186,6 +219,10 @@ class MainActivity : Activity() {
                 }
                 val favorites = ids("favorites"); val hidden = ids("hidden"); val order = ids("order")
                 val columns = json.get("columns"); require(columns is Int && columns in 3..5)
+                val theme = if (json.has("theme")) json.get("theme") else 0
+                require(theme is Int && theme in palettes.indices)
+                val heading = if (json.has("heading")) json.get("heading") else "Your home. Your way."
+                require(heading is String && heading.length <= 48 && heading.none { it.isISOControl() })
                 val flags = listOf("clock", "labels", "animation").associateWith {
                     val value = json.get(it); require(value is Boolean); value
                 }
@@ -195,6 +232,7 @@ class MainActivity : Activity() {
                         val edit = prefs.edit().putStringSet("favorites", favorites.toSet())
                             .putStringSet("hidden", hidden.toSet()).putString("order", JSONArray(order).toString())
                             .putInt("columns", columns)
+                            .putInt("theme", theme).putString("heading", heading)
                         for ((key, value) in flags) edit.putBoolean(key, value)
                         edit.apply(); render()
                     }.setNegativeButton("Cancel", null).show()
@@ -224,21 +262,24 @@ class MainActivity : Activity() {
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     private fun surface(focus: Boolean = false) = GradientDrawable().apply {
-        cornerRadius = dp(10).toFloat()
-        setColor(Color.parseColor(if (focus) "#254652" else "#172536"))
-        setStroke(dp(if (focus) 2 else 1), Color.parseColor(if (focus) "#D0F3E8" else "#263749"))
+        cornerRadius = dp(12).toFloat()
+        val theme = palette()
+        setColor(Color.parseColor(if (focus) theme.focused else theme.card))
+        setStroke(dp(if (focus) 2 else 1), if (focus) Color.parseColor(theme.accent) else Color.argb(45, 200, 215, 240))
     }
 
     private fun label(value: String, size: Float, color: String = "#EFF4F8") = TextView(this).apply {
         text = value; textSize = size; setTextColor(Color.parseColor(color))
     }
 
-    private fun button(text: String, action: () -> Unit): TextView = label(text, 15f).apply {
+    private fun button(text: String, selected: Boolean = false, action: () -> Unit): TextView = label(text, 14f).apply {
         gravity = Gravity.CENTER
         isFocusable = true; isClickable = true
         setPadding(dp(20), 0, dp(20), 0)
-        background = surface()
-        setOnFocusChangeListener { _, focus -> background = surface(focus) }
+        background = surface(selected)
+        setTextColor(Color.parseColor(if (selected) palette().accent else "#B7C2D6"))
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        setOnFocusChangeListener { _, focus -> background = surface(focus || selected) }
         setOnClickListener { action() }
     }
 
@@ -247,7 +288,8 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             isFocusable = true; isClickable = true; isLongClickable = true
             contentDescription = app.label; background = surface()
-            setPadding(dp(8), dp(8), dp(8), dp(8)); clipToOutline = true
+            setPadding(dp(5), dp(5), dp(5), dp(5)); clipToOutline = true
+            elevation = dp(2).toFloat()
         }
         val image = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -290,7 +332,11 @@ class MainActivity : Activity() {
             tile.background = surface(focus)
             val scale = if (focus && prefs.getBoolean("animation", true)) 1.035f else 1f
             tile.animate().scaleX(scale).scaleY(scale).setDuration(100).start()
-            if (focus) focusedPackage = app.id
+            tile.translationZ = dp(if (focus) 6 else 0).toFloat()
+            if (focus) {
+                focusedPackage = app.id
+                focusCaption?.text = app.label
+            }
         }
         tile.setOnClickListener { focusedPackage = app.id; launch(app.intent) }
         tile.setOnLongClickListener {
@@ -302,26 +348,28 @@ class MainActivity : Activity() {
 
     private fun render() {
         generation++
+        focusCaption = null
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(40), dp(24), dp(40), dp(16))
+            setPadding(dp(40), dp(28), dp(40), dp(18))
             background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.parseColor("#152B38"), Color.parseColor("#0B121E")))
+                intArrayOf(Color.parseColor(palette().top), Color.parseColor(palette().bottom)))
         }
         val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val branding = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        branding.addView(label("F I R E C U B E", 11f, "#94C7BD"))
-        branding.addView(label("Make yourself at home.", 28f).apply {
+        branding.addView(label("F I R E C U B E", 10f, palette().accent))
+        branding.addView(label(prefs.getString("heading", "Your home. Your way.")!!, 30f).apply {
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+            maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
             setPadding(0, dp(8), 0, dp(6))
         })
         header.addView(branding, LinearLayout.LayoutParams(0, -2, 1f))
         val time = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.RIGHT
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.END
         }
         time.addView(TextClock(this).apply {
             format12Hour = "h:mm a"; format24Hour = "HH:mm"
-            textSize = 26f; setTextColor(Color.WHITE)
+            textSize = 30f; setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         })
         time.addView(TextClock(this).apply {
@@ -331,13 +379,13 @@ class MainActivity : Activity() {
         if (prefs.getBoolean("clock", true)) header.addView(time)
         root.addView(header)
         val actions = LinearLayout(this).apply { setPadding(0, dp(18), 0, dp(16)) }
-        fun tab(text: String, action: () -> Unit) {
-            actions.addView(button(text, action), LinearLayout.LayoutParams(-2, dp(40)).apply {
+        fun tab(text: String, selected: Boolean = false, action: () -> Unit) {
+            actions.addView(button(text, selected, action), LinearLayout.LayoutParams(-2, dp(38)).apply {
                 rightMargin = dp(10)
             })
         }
-        tab("Favorites") { allApps = false; showingHidden = false; focusedPackage = null; render() }
-        tab("All apps") { allApps = true; showingHidden = false; focusedPackage = null; render() }
+        tab("Favorites", !allApps) { allApps = false; showingHidden = false; focusedPackage = null; render() }
+        tab("All apps", allApps && !showingHidden) { allApps = true; showingHidden = false; focusedPackage = null; render() }
         actions.addView(Space(this), LinearLayout.LayoutParams(0, 1, 1f))
         tab("Settings") { settingsMenu() }
         root.addView(actions)
@@ -351,7 +399,7 @@ class MainActivity : Activity() {
             }.thenBy { it.label.lowercase() })
         }
         visibleIds = apps.map { it.id }
-        root.addView(label(if (loading) "REFRESHING APPS" else if (showingHidden) "HIDDEN APPS" else if (allApps) "YOUR APPS  /  "+apps.size else "READY WHEN YOU ARE", 11f, "#94A7B9").apply {
+        root.addView(label(if (loading) "REFRESHING APPS" else if (showingHidden) "HIDDEN APPS" else if (allApps) "ALL APPS  ·  "+apps.size else "YOUR FAVORITES  ·  "+apps.size, 10f, "#94A7B9").apply {
             setPadding(dp(6), 0, 0, dp(10))
         })
         val scroll = ScrollView(this).apply { clipChildren = false }
@@ -383,9 +431,11 @@ class MainActivity : Activity() {
         if (apps.isEmpty()) rows.addView(label(if (loading) "Loading your apps…" else if (showingHidden) "No hidden apps." else "Choose favorites from All apps. Hold Select on any app.", 18f))
         scroll.addView(rows)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(label("Hold Select to edit favorites", 11f, "#94A7B9").apply {
-            setPadding(dp(6), dp(8), 0, 0)
-        })
+        val footer = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(8), dp(6), 0) }
+        focusCaption = label("Choose an app", 13f, palette().accent)
+        footer.addView(focusCaption, LinearLayout.LayoutParams(0, -2, 1f))
+        footer.addView(label("SELECT  Open    ·    HOLD SELECT  Organize", 10f, "#94A7B9"))
+        root.addView(footer)
         setContentView(root)
         (remembered ?: first)?.requestFocus()
     }

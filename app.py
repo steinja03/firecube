@@ -1,4 +1,4 @@
-"""Read-only Fire TV inventory and diagnostics. Python 3.10+ and PySide6."""
+"""Fire TV inventory, diagnostics, and an opt-in disposable recovery test."""
 import argparse
 import sys
 import json
@@ -10,13 +10,34 @@ from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QFileDialog, QHBoxLayout, QHeaderView, QLabel,
     QLineEdit, QMainWindow, QMessageBox, QPushButton, QTableWidget,
-    QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
+    QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget, QInputDialog,
 )
 
 from baseline import load_report
 from inventory import collect
 from safety import assess, details
 from diagnostics import capture
+from recovery_probe import test_probe
+
+
+class RecoveryWorker(QThread):
+    completed = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, adb, serial, journal, parent=None):
+        super().__init__(parent)
+        self.adb, self.serial, self.journal = adb, serial, journal
+
+    def run(self):
+        try:
+            test_probe(self.adb, self.serial, self.journal)
+            last = Path(self.journal).read_text(encoding="utf-8").splitlines()[-1]
+            result = json.loads(last)
+            if result.get("event") != "complete" or result.get("probe_disable_enable_verified") is not True:
+                raise RuntimeError("No verified probe completion record")
+            self.completed.emit(result)
+        except Exception as error:
+            self.failed.emit(str(error))
 
 
 class Collector(QThread):
@@ -50,7 +71,7 @@ class InventoryWindow(QMainWindow):
         heading = QLabel("Fire TV package inventory")
         heading.setStyleSheet("font-size: 24px; font-weight: bold")
         layout.addWidget(heading)
-        layout.addWidget(QLabel("Read-only inventory and firmware diagnostics · No package changes"))
+        layout.addWidget(QLabel("Inventory and diagnostics · Recovery test changes only the disposable Firecube test app"))
         open_button = QPushButton("Open baseline JSON…")
         open_button.clicked.connect(self.choose_report)
         layout.addWidget(open_button)
@@ -72,6 +93,9 @@ class InventoryWindow(QMainWindow):
             live.addWidget(control)
         layout.addLayout(live)
         layout.addWidget(self.diagnostic_button)
+        self.probe_button = QPushButton("Test disposable app disable/enable…")
+        self.probe_button.clicked.connect(self.probe_recovery)
+        layout.addWidget(self.probe_button)
         layout.addWidget(QLabel("Connect with adb connect first. Refresh reads only; it does not install or change packages."))
         self.summary = QLabel("Open a baseline to begin. Saved reports do not represent live device status.")
         self.summary.setWordWrap(True)
@@ -113,6 +137,55 @@ class InventoryWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Locate official platform-tools ADB", "", "ADB executable (adb.exe adb);;All files (*)")
         if path:
             self.adb_path.setText(path)
+
+    def probe_recovery(self):
+        if self.worker and self.worker.isRunning():
+            return
+        adb, serial = self.adb_path.text().strip(), self.serial.text().strip()
+        if not serial or not Path(adb).is_file():
+            QMessageBox.warning(self, "Connection details", "Locate adb.exe and enter the exact connected device identifier.")
+            return
+        answer, accepted = QInputDialog.getText(self, "Preview: disposable app test",
+            f"Device: {serial}\n"
+            "Requires dev.firecube.probe already installed.\n"
+            "Changes only that test app, for user 0:\n"
+            "1. pm disable-user --user 0 dev.firecube.probe\n"
+            "2. Verify, then pm enable --user 0 dev.firecube.probe\n"
+            "3. Verify enabled state. Stop on any failure.\n"
+            "Final override is explicitly enabled; original default override may differ.\n"
+            "Amazon home, Alexa and streaming apps are not changed.\n"
+            "Type TEST PROBE to approve:")
+        if not accepted or answer.strip() != "TEST PROBE":
+            return
+        filename = "probe-audit-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".jsonl"
+        path, _ = QFileDialog.getSaveFileName(self, "Save durable test audit", filename, "Audit log (*.jsonl)")
+        if not path:
+            return
+        if Path(path).exists():
+            QMessageBox.warning(self, "File exists", "Choose a new audit file. Nothing changed.")
+            return
+        self.refresh_button.setEnabled(False)
+        self.diagnostic_button.setEnabled(False)
+        self.probe_button.setEnabled(False)
+        self.adb_path.setEnabled(False)
+        self.serial.setEnabled(False)
+        self.worker = RecoveryWorker(adb, serial, path, self)
+        self.worker.completed.connect(self.probe_completed)
+        self.worker.failed.connect(lambda error: self.probe_failed(error, path, serial))
+        self.worker.finished.connect(self.collection_finished)
+        self.statusBar().showMessage("Testing only disposable probe. Do not disconnect the Stick.")
+        self.worker.start()
+
+    def probe_completed(self, result):
+        self.details.setPlainText(json.dumps(result, indent=2))
+        self.statusBar().showMessage("Probe disable/enable verified. Refresh inventory; system-package and launcher recovery remain unverified.")
+
+    def probe_failed(self, error, path, serial):
+        self.statusBar().showMessage("Probe test stopped. Inspect its audit before another operation.")
+        QMessageBox.warning(self, "Probe test stopped",
+            f"{error}\nAudit: {path}\n"
+            "The probe may be disabled. Inspect the audit. Its recovery command is:\n"
+            f"adb -s {serial} shell pm enable --user 0 dev.firecube.probe")
 
     def open_report(self, path):
         try:
@@ -160,6 +233,9 @@ class InventoryWindow(QMainWindow):
             return
         self.refresh_button.setEnabled(False)
         self.diagnostic_button.setEnabled(False)
+        self.probe_button.setEnabled(False)
+        self.adb_path.setEnabled(False)
+        self.serial.setEnabled(False)
         self.diagnostic_path = diagnostic_path
         self.statusBar().showMessage("Reading device and package states… Previous report remains available.")
         self.worker = Collector(adb, serial, self, diagnostics=diagnostic_path is not None)
@@ -195,6 +271,9 @@ class InventoryWindow(QMainWindow):
     def collection_finished(self):
         self.refresh_button.setEnabled(True)
         self.diagnostic_button.setEnabled(True)
+        self.probe_button.setEnabled(True)
+        self.adb_path.setEnabled(True)
+        self.serial.setEnabled(True)
 
     def save_report(self):
         if self.report is None:

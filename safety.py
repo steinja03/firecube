@@ -54,7 +54,7 @@ def details(package):
         f"Basis: {assessment['reason']}\n"
         f"Disabling risk: {assessment['risk']}\n"
         "Name/version/dependencies: not collected.\n"
-        "Restoration: unverified. No change controls are available.\n"
-        "Alexa is preserved by policy; its complete package set is not identified.\n"
+        "Restoration: unverified. Existing-app changes are unavailable.\n"
+        "Alexa removal was requested; safe package selection remains unverified.\n"
         f"{assessment['policy']}"
     )

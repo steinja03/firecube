@@ -9,6 +9,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication
 from app import InventoryWindow
 from app import Collector
+from app import RecoveryWorker
 from baseline import load_report
 
 
@@ -94,3 +95,37 @@ class ViewerTests(unittest.TestCase):
             worker.run()
             capture.assert_called_once_with("adb", "test")
         self.assertEqual(output, [{"evidence": {}}])
+
+    def test_probe_cancel_does_not_create_worker(self):
+        window = InventoryWindow()
+        self.addCleanup(window.close)
+        window.adb_path.setText(str(self.path))
+        window.serial.setText("stick")
+        with patch("app.QInputDialog.getText", return_value=("", False)):
+            with patch("app.RecoveryWorker") as worker:
+                window.probe_recovery()
+                worker.assert_not_called()
+
+    def test_probe_worker_requires_real_completion_record(self):
+        journal = Path(self.directory.name) / "probe.jsonl"
+        worker = RecoveryWorker("adb", "stick", journal)
+        outcomes = []
+        worker.completed.connect(outcomes.append)
+        def fake(*args):
+            journal.write_text(json.dumps({"event": "complete", "probe_disable_enable_verified": True}) + "\n")
+        with patch("app.test_probe", side_effect=fake):
+            worker.run()
+        self.assertTrue(outcomes[0]["probe_disable_enable_verified"])
+
+    def test_incomplete_probe_audit_cannot_report_success(self):
+        journal = Path(self.directory.name) / "probe.jsonl"
+        worker = RecoveryWorker("adb", "stick", journal)
+        failures, outcomes = [], []
+        worker.failed.connect(failures.append)
+        worker.completed.connect(outcomes.append)
+        def fake(*args):
+            journal.write_text(json.dumps({"event": "stopped"}) + "\n")
+        with patch("app.test_probe", side_effect=fake):
+            worker.run()
+        self.assertEqual(outcomes, [])
+        self.assertIn("No verified", failures[0])

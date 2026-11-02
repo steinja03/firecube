@@ -4,7 +4,10 @@ import re
 
 def summarize(evidence):
     help_result = evidence.get("package_manager_help", {})
-    help_text = help_result.get("output", "") if help_result.get("ok") else ""
+    raw_help = help_result.get("output", "")
+    # Some older pm versions return an error status while printing valid usage.
+    # Retain advertised syntax without calling the command or permission successful.
+    help_text = raw_help if help_result.get("ok") or re.search(r"(?im)^\s*usage:\s*pm\b", raw_help) else ""
     resolution = evidence.get("home_resolution", {})
     text = resolution.get("output", "") if resolution.get("ok") else ""
     matches = re.findall(r"(?m)^\s*([A-Za-z0-9_.]+/[A-Za-z0-9_.$]+)\s*$", text)

@@ -14,7 +14,8 @@ def capture(adb, serial):
     baseline = collect(adb, serial)
     evidence = {}
     commands = [
-        ("package_manager_help", ["pm", "help"]),
+        # Fire OS 5 rejects `pm help`; invoking pm without arguments prints usage.
+        ("package_manager_help", ["pm"]),
         ("users", ["pm", "list", "users"]),
         ("home_resolution", ["pm", "resolve-activity", "--brief", "-a",
                              "android.intent.action.MAIN", "-c", "android.intent.category.HOME"]),
@@ -29,7 +30,7 @@ def capture(adb, serial):
         try:
             evidence[label] = {"ok": True, "output": run(adb, serial, "shell", *args)}
         except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
-            evidence[label] = {"ok": False, "error": str(error)}
+            evidence[label] = {"ok": False, "error": str(error), "output": str(error)}
     return {
         "schema_version": 1, "captured_at": datetime.now(timezone.utc).isoformat(),
         "baseline": baseline, "read_only": True, "evidence": evidence,

@@ -24,6 +24,10 @@ button, app return, reboot and a verified recovery path before any stock-launche
 change is considered. Firmware services required by playback, networking, input
 and DRM remain needed even if Amazon's home UI can be avoided.
 
+Version 0.4.0 adds three dark color themes, a custom home heading, selected tabs,
+focused-app footer text, app-information access and more distinct card focus.
+Theme and heading persist and are included in settings exports. Older settings
+exports remain importable with default theme/heading values.
 Wallpaper editing, custom app labels and light themes remain future work.
 Performance changes are implementation improvements, not a measured speedup;
 resource use and remote navigation need physical API 22 device testing.
