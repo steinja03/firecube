@@ -5,10 +5,28 @@ user's Netflix, YouTube (both known identifiers), Paramount+, Hulu, Max, Disney+
 Plex and Peacock choices. Only installed launchable apps are shown; identifiers
 can vary. All apps discovers other entries. Hold Select to change favorites.
 No Internet, microphone, accessibility, usage access, or background-service
-permissions are requested. Version 0.2.0 adds cached installed app banners/icons, a four-column grid, a
-compact clock/date header and smaller navigation controls. Artwork falls back to
-the installed app icon when no TV banner is supplied. Wallpaper editing, custom
-ordering and settings import/export are not yet implemented.
+permissions are requested. Version 0.3.0 adds asynchronous app discovery/artwork loading, artwork scaled to
+at most 288x162 and a 4 MB bitmap cache, 3–5 columns, app ordering/hiding, clock,
+label and focus-animation toggles, and JSON settings import/export. Artwork falls
+back to the installed icon when no banner is available. Hidden apps are hidden
+only in Firecube; their packages and background behavior are unchanged. Manage
+hidden apps from Settings to unhide them. Long-press Select opens app actions.
+
+Settings import/export uses the system document picker without storage permissions.
+If Fire OS lacks a usable picker, the launcher reports that limitation. Imports
+are capped at 64 KiB, validated before applying, and need explicit confirmation.
+Only launcher preferences are imported; no package commands are executed.
+
+Settings includes a user-initiated Android Home Settings shortcut. Fire OS may
+not provide or allow that screen. It never disables Amazon home or silently
+changes the default. Even a selected default must be tested with the remote Home
+button, app return, reboot and a verified recovery path before any stock-launcher
+change is considered. Firmware services required by playback, networking, input
+and DRM remain needed even if Amazon's home UI can be avoided.
+
+Wallpaper editing, custom app labels and light themes remain future work.
+Performance changes are implementation improvements, not a measured speedup;
+resource use and remote navigation need physical API 22 device testing.
 
 Build with JDK 17 or 21, Android SDK platform 35 and build-tools 35.0.0. Set
 ANDROID_HOME or local.properties to the SDK path. Run:

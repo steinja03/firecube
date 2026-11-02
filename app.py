@@ -1,7 +1,8 @@
-"""Offline, read-only baseline viewer. Run with Python 3.10+ and PySide6."""
+"""Read-only Fire TV inventory and diagnostics. Python 3.10+ and PySide6."""
 import argparse
 import sys
 import json
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -15,19 +16,21 @@ from PySide6.QtWidgets import (
 from baseline import load_report
 from inventory import collect
 from safety import assess, details
+from diagnostics import capture
 
 
 class Collector(QThread):
     completed = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, adb, serial, parent=None):
+    def __init__(self, adb, serial, parent=None, diagnostics=False):
         super().__init__(parent)
         self.adb, self.serial = adb, serial
+        self.diagnostics = diagnostics
 
     def run(self):
         try:
-            self.completed.emit(collect(self.adb, self.serial))
+            self.completed.emit((capture if self.diagnostics else collect)(self.adb, self.serial))
         except Exception as error:
             self.failed.emit(str(error))
 
@@ -38,6 +41,7 @@ class InventoryWindow(QMainWindow):
         self.report = None
         self.visible = []
         self.worker = None
+        self.diagnostic_path = None
         self.setWindowTitle("Firecube · Package inventory")
         self.resize(1080, 760)
         root = QWidget()
@@ -46,23 +50,28 @@ class InventoryWindow(QMainWindow):
         heading = QLabel("Fire TV package inventory")
         heading.setStyleSheet("font-size: 24px; font-weight: bold")
         layout.addWidget(heading)
-        layout.addWidget(QLabel("Offline baseline viewer · No device connection or package changes"))
+        layout.addWidget(QLabel("Read-only inventory and firmware diagnostics · No package changes"))
         open_button = QPushButton("Open baseline JSON…")
         open_button.clicked.connect(self.choose_report)
         layout.addWidget(open_button)
         live = QHBoxLayout()
-        self.adb_path = QLineEdit(str(Path("adb.exe").resolve()))
+        self.adb_path = QLineEdit(shutil.which("adb") or str(Path("adb.exe").resolve()))
         self.adb_path.setPlaceholderText("Full path to adb.exe")
         self.serial = QLineEdit()
         self.serial.setPlaceholderText("Device identifier, for example 192.168.50.39:5555")
+        browse_adb = QPushButton("Locate ADB…")
+        browse_adb.clicked.connect(self.choose_adb)
         self.refresh_button = QPushButton("Read from Stick")
         self.refresh_button.clicked.connect(self.collect_live)
         self.save_button = QPushButton("Save baseline…")
         self.save_button.clicked.connect(self.save_report)
         self.save_button.setEnabled(False)
-        for control in (self.adb_path, self.serial, self.refresh_button, self.save_button):
+        self.diagnostic_button = QPushButton("Export device diagnostics…")
+        self.diagnostic_button.clicked.connect(self.collect_diagnostics)
+        for control in (self.adb_path, browse_adb, self.serial, self.refresh_button, self.save_button):
             live.addWidget(control)
         layout.addLayout(live)
+        layout.addWidget(self.diagnostic_button)
         layout.addWidget(QLabel("Connect with adb connect first. Refresh reads only; it does not install or change packages."))
         self.summary = QLabel("Open a baseline to begin. Saved reports do not represent live device status.")
         self.summary.setWordWrap(True)
@@ -100,6 +109,11 @@ class InventoryWindow(QMainWindow):
         if path:
             self.open_report(path)
 
+    def choose_adb(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Locate official platform-tools ADB", "", "ADB executable (adb.exe adb);;All files (*)")
+        if path:
+            self.adb_path.setText(path)
+
     def open_report(self, path):
         try:
             report = load_report(path)
@@ -125,7 +139,18 @@ class InventoryWindow(QMainWindow):
         )
         self.refresh()
 
-    def collect_live(self):
+    def collect_diagnostics(self):
+        if self.worker and self.worker.isRunning():
+            return
+        filename = "firecube-evidence-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".json"
+        path, _ = QFileDialog.getSaveFileName(self, "Save read-only diagnostics", filename, "JSON reports (*.json)")
+        if path:
+            if Path(path).exists():
+                QMessageBox.warning(self, "File exists", "Choose a new filename to preserve existing reports.")
+                return
+            self.collect_live(diagnostic_path=path)
+
+    def collect_live(self, _checked=False, diagnostic_path=None):
         if self.worker and self.worker.isRunning():
             return
         serial = self.serial.text().strip()
@@ -134,20 +159,42 @@ class InventoryWindow(QMainWindow):
             QMessageBox.warning(self, "Connection details", "Enter the exact device identifier and a valid adb executable path.")
             return
         self.refresh_button.setEnabled(False)
+        self.diagnostic_button.setEnabled(False)
+        self.diagnostic_path = diagnostic_path
         self.statusBar().showMessage("Reading device and package states… Previous report remains available.")
-        self.worker = Collector(adb, serial, self)
+        self.worker = Collector(adb, serial, self, diagnostics=diagnostic_path is not None)
         self.worker.completed.connect(self.live_completed)
         self.worker.failed.connect(self.live_failed)
-        self.worker.finished.connect(lambda: self.refresh_button.setEnabled(True))
+        self.worker.finished.connect(self.collection_finished)
         self.worker.start()
 
     def live_completed(self, report):
+        if self.diagnostic_path:
+            path = self.diagnostic_path
+            self.diagnostic_path = None
+            try:
+                with open(path, "x", encoding="utf-8") as stream:
+                    json.dump(report, stream, indent=2)
+                    stream.write("\n")
+            except (OSError, ValueError) as error:
+                self.live_failed(str(error))
+                return
+            self.display_report(report["baseline"])
+            compatibility = report["home_compatibility"]
+            self.statusBar().showMessage("Diagnostics saved. Default Home, reboot and recovery remain unverified.")
+            self.details.setPlainText(json.dumps(compatibility, indent=2))
+            return
         self.display_report(report)
         self.statusBar().showMessage("Read completed. Save a baseline to retain it; current connection is not monitored.")
 
     def live_failed(self, error):
+        self.diagnostic_path = None
         self.statusBar().showMessage("Read failed. Previous report retained.")
         QMessageBox.warning(self, "Read stopped", error)
+
+    def collection_finished(self):
+        self.refresh_button.setEnabled(True)
+        self.diagnostic_button.setEnabled(True)
 
     def save_report(self):
         if self.report is None:

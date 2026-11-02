@@ -7,6 +7,7 @@ import subprocess
 
 from inventory import collect, run
 from change_plan import preview, ALEXA_REVIEW
+from home_compat import summarize
 
 
 def capture(adb, serial):
@@ -17,9 +18,12 @@ def capture(adb, serial):
         ("users", ["pm", "list", "users"]),
         ("home_resolution", ["pm", "resolve-activity", "--brief", "-a",
                              "android.intent.action.MAIN", "-c", "android.intent.category.HOME"]),
+        ("storage", ["df", "/data"]),
+        ("memory", ["cat", "/proc/meminfo"]),
+        ("launcher_memory", ["dumpsys", "meminfo", "dev.firecube.launcher"]),
     ]
     names = {p["package"] for p in baseline["packages"]}
-    for name in sorted((ALEXA_REVIEW | {"com.amazon.tv.launcher"}) & names):
+    for name in sorted((ALEXA_REVIEW | {"com.amazon.tv.launcher", "dev.firecube.launcher"}) & names):
         commands.append((name, ["dumpsys", "package", name]))
     for label, args in commands:
         try:
@@ -30,6 +34,7 @@ def capture(adb, serial):
         "schema_version": 1, "captured_at": datetime.now(timezone.utc).isoformat(),
         "baseline": baseline, "read_only": True, "evidence": evidence,
         "preview": preview(baseline),
+        "home_compatibility": summarize(evidence),
         "limitations": "Help text is not proof of mutation permission. No package changes were tested.",
     }
 

@@ -109,3 +109,49 @@ python diagnostics.py --adb PATH_TO_ADB --serial DEVICE:5555 --output evidence.j
 This read-only evidence may contain device identifiers and package metadata;
 review before sharing. Files are never overwritten. A successful probe recovery
 cannot establish safe dependencies or permissions for system/Alexa packages.
+
+
+## Version 0.3.0: workflow and limitations
+
+On Windows, extract the helper ZIP and double-click `Start-Firecube.cmd`. It uses
+Python 3.13 and installs pinned GUI requirements in a local virtual environment.
+It does not install ADB or change the Stick. Use **Locate ADB…**, select official
+platform-tools/adb.exe, and enter the exact connected device identifier. Use
+**Export device diagnostics…** to save a read-only report, including memory,
+storage, package-manager help, home resolution and package metadata. Unsupported
+commands stay distinct from successful checks. Review reports before sharing.
+This helper is source-based, not a packaged EXE; the startup script has not been
+executed on Windows in this release.
+
+The launcher adds customizable columns, order, visibility and settings transfer.
+Discovery and bounded artwork caching run off the main thread. Physical-device
+functionality and performance are unverified for this new version.
+
+`recovery_probe.py` is a separate opt-in test of **only dev.firecube.probe**. It
+requires the disposable recovery APK already installed and an explicit typed
+confirmation. Its default mode prints a command preview and performs no ADB
+calls. The apply mode writes a durable audit record before each mutation,
+checks the device fingerprint before each command, verifies each result, and
+stops on the first failure. It never modifies another package. Final enabled
+state can be explicit rather than the original default-enabled override; the
+journal records this difference rather than claiming exact restoration.
+
+Preview (does not execute commands):
+
+```
+python recovery_probe.py --adb PATH_TO_ADB --serial DEVICE:5555 --journal probe-audit.jsonl
+```
+
+Only after reviewing the preview and approving this device test, append `--apply`
+and type `TEST PROBE` when prompted. If interrupted or a check fails, inspect the
+journal. The narrowly scoped recovery command is:
+
+```
+adb -s DEVICE:5555 shell pm enable --user 0 dev.firecube.probe
+```
+
+A successful probe test does not establish Amazon-package permission, dependency
+safety, default-home behavior or stock-launcher recovery. This release does not
+remove Alexa, disable existing apps, replace Fire OS, or authorize disabling
+Amazon home. Full avoidance of Amazon's home screen remains an unverified
+firmware capability, not a promised feature. Do not root or flash this device.

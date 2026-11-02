@@ -45,6 +45,11 @@ class ViewerTests(unittest.TestCase):
         self.path.write_text(json.dumps(self.report))
         with self.assertRaises(ValueError):
             load_report(self.path)
+        self.report["packages"].pop()
+        self.report["packages"][0]["enabled"] = "false"
+        self.path.write_text(json.dumps(self.report))
+        with self.assertRaises(ValueError):
+            load_report(self.path)
 
     def test_collector_success_and_error_signals(self):
         worker = Collector("adb", "test")
@@ -68,8 +73,24 @@ class ViewerTests(unittest.TestCase):
                 window.save_report()
                 warning.assert_called_once()
         self.assertEqual(self.path.read_bytes(), original)
-        self.report["packages"].pop()
-        self.report["packages"][0]["enabled"] = "false"
-        self.path.write_text(json.dumps(self.report))
-        with self.assertRaises(ValueError):
-            load_report(self.path)
+
+    def test_diagnostic_export_preserves_baseline_and_clears_pending_save(self):
+        window = InventoryWindow()
+        self.addCleanup(window.close)
+        path = Path(self.directory.name) / "evidence.json"
+        window.diagnostic_path = str(path)
+        diagnostic = {"baseline": self.report, "home_compatibility": {"home_button_verified": False}}
+        window.live_completed(diagnostic)
+        self.assertEqual(json.loads(path.read_text()), diagnostic)
+        self.assertIsNone(window.diagnostic_path)
+        self.assertEqual(window.report, self.report)
+        self.assertIn("home_button_verified", window.details.toPlainText())
+
+    def test_diagnostic_worker_uses_capture(self):
+        worker = Collector("adb", "test", diagnostics=True)
+        output = []
+        worker.completed.connect(output.append)
+        with patch("app.capture", return_value={"evidence": {}}) as capture:
+            worker.run()
+            capture.assert_called_once_with("adb", "test")
+        self.assertEqual(output, [{"evidence": {}}])
