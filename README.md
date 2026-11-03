@@ -8,9 +8,9 @@ device-tested. Package mutation and Home-button replacement are unverified.
 
 ## Download debug APKs
 
-- [Firecube launcher 0.4.0](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.4.0/firecube-launcher-0.4.0-debug.apk)
+- [Firecube launcher 0.5.0](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.5.0/firecube-launcher-0.5.0-debug.apk)
 - [Recovery-test app 0.1.0](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.1.0/firecube-recovery-test-0.1.0-debug.apk)
-- [Launcher/helper SHA-256 checksums](downloads/v0.4.0/SHA256SUMS)
+- [Launcher/helper SHA-256 checksums](downloads/v0.5.0/SHA256SUMS)
 - [Recovery-test SHA-256 checksum](downloads/v0.1.0/SHA256SUMS)
 
 These are debug-signed prototypes, not production releases. Both target API 35
@@ -182,3 +182,35 @@ See [observed firmware compatibility](docs/device-compatibility.md) and the
 advertised in the supplied Fire OS 5 pm usage. The Home button still opens Amazon
 home according to the user's physical-device test. No claim of full replacement
 is made, and no stock-launcher-disable instructions are supplied.
+
+
+## Consolidated acceptance build 0.5.0
+
+[Download acceptance helper ZIP](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/v0.5.0/firecube-windows-0.5.0.zip)
+
+This is a test candidate, not a 1.0 readiness claim. The launcher has a static
+ambient backdrop, compact typography/navigation and responsive 16:9 artwork
+spaces. Existing themes, heading, favorites and ordering are preserved when
+updating in place with the same signing key. See [one-round acceptance
+instructions](docs/acceptance-round.md).
+
+In the Windows helper, **Acceptance checklist** collects explicit user results
+for all eight streaming apps, navigation, settings, design and reboot persistence.
+**Export one acceptance bundle…** reads fresh diagnostics, captures the current
+TV screen, and optionally includes a selected disposable-probe audit. It makes
+no device changes. Keep Firecube visible if the screenshot should show the design.
+The ZIP contains acceptance.json, device-diagnostics.json, an optional PNG and an
+optional probe audit. Review identifiers and visible content before sharing.
+Failed screenshot capture is recorded without inventing an image. Unrun, failed,
+unavailable and passed checks stay distinct. Imported audit claims are not
+independently authenticated and never authorize broader device changes.
+
+The export includes process/CPU snapshots and metadata for installed streaming,
+Alexa-review and ordinary non-system packages. Snapshots are not performance
+benchmarks. Unsupported commands stay explicit. A failed export can leave an
+incomplete file; discard it and choose a new filename after diagnosing the error.
+
+Remaining full-scope blockers: actual Alexa cleanup, existing-app disabling and
+restoration, and verified Home-button replacement with recovery. The helper
+reports these as unresolved even if every manual launcher check passes. Nothing
+in this release disables Amazon home or modifies existing applications.

@@ -11,6 +11,7 @@ from app import InventoryWindow
 from app import Collector
 from app import RecoveryWorker
 from baseline import load_report
+from acceptance import CHECKS
 
 
 class ViewerTests(unittest.TestCase):
@@ -129,3 +130,9 @@ class ViewerTests(unittest.TestCase):
             worker.run()
         self.assertEqual(outcomes, [])
         self.assertIn("No verified", failures[0])
+
+    def test_acceptance_checklist_defaults_to_not_tested(self):
+        window = InventoryWindow()
+        self.addCleanup(window.close)
+        self.assertEqual(set(window.acceptance.responses), set(CHECKS))
+        self.assertTrue(all(control.currentText() == "Not tested" for control in window.acceptance.responses.values()))

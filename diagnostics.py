@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 
 from inventory import collect, run
-from change_plan import preview, ALEXA_REVIEW
+from change_plan import preview, ALEXA_REVIEW, KEEP
 from home_compat import summarize
 
 
@@ -22,9 +22,12 @@ def capture(adb, serial):
         ("storage", ["df", "/data"]),
         ("memory", ["cat", "/proc/meminfo"]),
         ("launcher_memory", ["dumpsys", "meminfo", "dev.firecube.launcher"]),
+        ("process_snapshot", ["ps"]),
+        ("cpu_snapshot", ["dumpsys", "cpuinfo"]),
     ]
     names = {p["package"] for p in baseline["packages"]}
-    for name in sorted((ALEXA_REVIEW | {"com.amazon.tv.launcher", "dev.firecube.launcher"}) & names):
+    ordinary_apps = {p["package"] for p in baseline["packages"] if not p["system"]}
+    for name in sorted((ALEXA_REVIEW | KEEP | ordinary_apps | {"com.amazon.tv.launcher"}) & names):
         commands.append((name, ["dumpsys", "package", name]))
     for label, args in commands:
         try:

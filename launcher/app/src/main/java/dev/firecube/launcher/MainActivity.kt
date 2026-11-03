@@ -19,7 +19,6 @@ import android.text.InputFilter
 import android.net.Uri
 import java.util.concurrent.Executors
 import org.json.JSONArray
-import org.json.JSONObject
 
 /** API 22 prototype: no network, background services, or usage access. */
 class MainActivity : Activity() {
@@ -188,13 +187,13 @@ class MainActivity : Activity() {
         val uri = data.data!!
         try {
             if (request == 50) {
-                val json = JSONObject().put("version", 1)
-                    .put("favorites", JSONArray(favorites().toList())).put("hidden", JSONArray(hidden().toList()))
-                    .put("order", JSONArray(order())).put("columns", prefs.getInt("columns", 4))
-                    .put("theme", prefs.getInt("theme", 0)).put("heading", prefs.getString("heading", "Your home. Your way."))
-                for (key in listOf("clock", "labels", "animation")) json.put(key, prefs.getBoolean(key, true))
+                val settings = LauncherSettings(favorites(), hidden(), order(),
+                    prefs.getInt("columns", 4), prefs.getInt("theme", 0),
+                    prefs.getString("heading", "Your home. Your way.")!!,
+                    prefs.getBoolean("clock", true), prefs.getBoolean("labels", true),
+                    prefs.getBoolean("animation", true))
                 val output = contentResolver.openOutputStream(uri, "wt") ?: error("No output stream")
-                output.bufferedWriter().use { it.write(json.toString(2)) }
+                output.bufferedWriter().use { it.write(settings.encode()) }
                 Toast.makeText(this, "Settings exported", Toast.LENGTH_SHORT).show()
             } else if (request == 51) {
                 val input = contentResolver.openInputStream(uri) ?: error("No input stream")
@@ -208,32 +207,16 @@ class MainActivity : Activity() {
                     }
                     require(count <= 65536) { "File too large" }; String(buffer, 0, count)
                 }
-                val json = JSONObject(text)
-                require(json.get("version") == 1)
-                fun ids(key: String): List<String> {
-                    val values = json.getJSONArray(key); require(values.length() <= 500)
-                    return (0 until values.length()).map {
-                        val value = values.get(it); require(value is String && value.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*")))
-                        value
-                    }.distinct()
-                }
-                val favorites = ids("favorites"); val hidden = ids("hidden"); val order = ids("order")
-                val columns = json.get("columns"); require(columns is Int && columns in 3..5)
-                val theme = if (json.has("theme")) json.get("theme") else 0
-                require(theme is Int && theme in palettes.indices)
-                val heading = if (json.has("heading")) json.get("heading") else "Your home. Your way."
-                require(heading is String && heading.length <= 48 && heading.none { it.isISOControl() })
-                val flags = listOf("clock", "labels", "animation").associateWith {
-                    val value = json.get(it); require(value is Boolean); value
-                }
+                val settings = LauncherSettings.decode(text)
                 AlertDialog.Builder(this).setTitle("Import launcher settings?")
                     .setMessage("Replace local favorites, hidden apps, order and display options? Installed apps are unaffected.")
                     .setPositiveButton("Import") { _, _ ->
-                        val edit = prefs.edit().putStringSet("favorites", favorites.toSet())
-                            .putStringSet("hidden", hidden.toSet()).putString("order", JSONArray(order).toString())
-                            .putInt("columns", columns)
-                            .putInt("theme", theme).putString("heading", heading)
-                        for ((key, value) in flags) edit.putBoolean(key, value)
+                        val edit = prefs.edit().putStringSet("favorites", settings.favorites)
+                            .putStringSet("hidden", settings.hidden).putString("order", JSONArray(settings.order).toString())
+                            .putInt("columns", settings.columns)
+                            .putInt("theme", settings.theme).putString("heading", settings.heading)
+                        edit.putBoolean("clock", settings.clock).putBoolean("labels", settings.labels)
+                            .putBoolean("animation", settings.animation)
                         edit.apply(); render()
                     }.setNegativeButton("Cancel", null).show()
             }
@@ -276,14 +259,19 @@ class MainActivity : Activity() {
         gravity = Gravity.CENTER
         isFocusable = true; isClickable = true
         setPadding(dp(20), 0, dp(20), 0)
-        background = surface(selected)
-        setTextColor(Color.parseColor(if (selected) palette().accent else "#B7C2D6"))
+        fun tabBackground(focused: Boolean) = GradientDrawable().apply {
+            cornerRadius = dp(19).toFloat()
+            setColor(if (selected) Color.parseColor(palette().accent) else Color.argb(55, 100, 120, 150))
+            setStroke(dp(if (focused) 2 else 0), Color.WHITE)
+        }
+        background = tabBackground(false)
+        setTextColor(Color.parseColor(if (selected) "#0B1422" else "#D4DEEC"))
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        setOnFocusChangeListener { _, focus -> background = surface(focus || selected) }
+        setOnFocusChangeListener { _, focus -> background = tabBackground(focus) }
         setOnClickListener { action() }
     }
 
-    private fun appTile(app: App, favorite: Boolean): View {
+    private fun appTile(app: App, favorite: Boolean, imageHeight: Int): View {
         val tile = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             isFocusable = true; isClickable = true; isLongClickable = true
@@ -322,12 +310,12 @@ class MainActivity : Activity() {
             }
         }
         val labels = prefs.getBoolean("labels", true)
-        tile.addView(image, LinearLayout.LayoutParams(-1, dp(if (labels) 82 else 110)))
-        if (labels) tile.addView(label(app.label, 15f).apply {
-            gravity = Gravity.CENTER; maxLines = 1
+        tile.addView(image, LinearLayout.LayoutParams(-1, dp(imageHeight)))
+        if (labels) tile.addView(label(app.label, 13f).apply {
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL; maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
-            setPadding(dp(4), dp(6), dp(4), 0)
-        }, LinearLayout.LayoutParams(-1, dp(32)))
+            setPadding(dp(7), 0, dp(7), 0)
+        }, LinearLayout.LayoutParams(-1, dp(26)))
         tile.setOnFocusChangeListener { _, focus ->
             tile.background = surface(focus)
             val scale = if (focus && prefs.getBoolean("animation", true)) 1.035f else 1f
@@ -351,17 +339,17 @@ class MainActivity : Activity() {
         focusCaption = null
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(40), dp(28), dp(40), dp(18))
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.parseColor(palette().top), Color.parseColor(palette().bottom)))
+            setPadding(dp(40), dp(24), dp(40), dp(18))
         }
         val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val branding = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        branding.addView(label("F I R E C U B E", 10f, palette().accent))
-        branding.addView(label(prefs.getString("heading", "Your home. Your way.")!!, 30f).apply {
+        branding.addView(label("FIRECUBE", 10f, palette().accent).apply {
+            letterSpacing = 0.22f; typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        })
+        branding.addView(label(prefs.getString("heading", "Your home. Your way.")!!, 28f).apply {
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
             maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
-            setPadding(0, dp(8), 0, dp(6))
+            setPadding(0, dp(6), 0, dp(4))
         })
         header.addView(branding, LinearLayout.LayoutParams(0, -2, 1f))
         val time = LinearLayout(this).apply {
@@ -378,7 +366,7 @@ class MainActivity : Activity() {
         })
         if (prefs.getBoolean("clock", true)) header.addView(time)
         root.addView(header)
-        val actions = LinearLayout(this).apply { setPadding(0, dp(18), 0, dp(16)) }
+        val actions = LinearLayout(this).apply { setPadding(0, dp(12), 0, dp(12)) }
         fun tab(text: String, selected: Boolean = false, action: () -> Unit) {
             actions.addView(button(text, selected, action), LinearLayout.LayoutParams(-2, dp(38)).apply {
                 rightMargin = dp(10)
@@ -411,18 +399,21 @@ class MainActivity : Activity() {
         var first: View? = null
         val columns = prefs.getInt("columns", 4).coerceIn(3, 5)
         val restoreId = focusedPackage
+        val imageHeight = (((resources.configuration.screenWidthDp - 92 - columns * 12) / columns - 10)
+            * 9 / 16).coerceIn(76, 150)
+        val cardHeight = imageHeight + (if (prefs.getBoolean("labels", true)) 26 else 0) + 10
         for (chunk in apps.chunked(columns)) {
             val row = LinearLayout(this).apply { clipChildren = false }
             for (app in chunk) {
-                val tile = appTile(app, app.id in favoriteIds)
-                row.addView(tile, LinearLayout.LayoutParams(0, dp(132), 1f).apply {
+                val tile = appTile(app, app.id in favoriteIds, imageHeight)
+                row.addView(tile, LinearLayout.LayoutParams(0, dp(cardHeight), 1f).apply {
                     setMargins(dp(6), dp(6), dp(6), dp(6))
                 })
                 if (first == null) first = tile
                 if (app.id == restoreId) remembered = tile
             }
             repeat(columns - chunk.size) {
-                row.addView(Space(this), LinearLayout.LayoutParams(0, dp(132), 1f).apply {
+                row.addView(Space(this), LinearLayout.LayoutParams(0, dp(cardHeight), 1f).apply {
                     setMargins(dp(6), dp(6), dp(6), dp(6))
                 })
             }
@@ -436,7 +427,11 @@ class MainActivity : Activity() {
         footer.addView(focusCaption, LinearLayout.LayoutParams(0, -2, 1f))
         footer.addView(label("SELECT  Open    ·    HOLD SELECT  Organize", 10f, "#94A7B9"))
         root.addView(footer)
-        setContentView(root)
+        val stage = FrameLayout(this)
+        stage.addView(AmbientBackground(this, palette().top, palette().bottom, palette().accent),
+            FrameLayout.LayoutParams(-1, -1))
+        stage.addView(root, FrameLayout.LayoutParams(-1, -1))
+        setContentView(stage)
         (remembered ?: first)?.requestFocus()
     }
 

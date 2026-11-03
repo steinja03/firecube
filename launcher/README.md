@@ -32,6 +32,13 @@ Wallpaper editing, custom app labels and light themes remain future work.
 Performance changes are implementation improvements, not a measured speedup;
 resource use and remote navigation need physical API 22 device testing.
 
+Version 0.5.0 refines the home layout with a static ambient vector backdrop,
+pill navigation, responsive 16:9 artwork space, smaller card labels and compact
+header spacing. This uses no wallpaper downloads, blur buffers or animation loop.
+Settings serialization is isolated in LauncherSettings and has five JVM tests
+covering round trips, backward compatibility and invalid data. Run
+`./gradlew :app:testDebugUnitTest` to exercise them.
+
 Build with JDK 17 or 21, Android SDK platform 35 and build-tools 35.0.0. Set
 ANDROID_HOME or local.properties to the SDK path. Run:
 

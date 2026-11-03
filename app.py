@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QFileDialog, QHBoxLayout, QHeaderView, QLabel,
     QLineEdit, QMainWindow, QMessageBox, QPushButton, QTableWidget,
-    QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget, QInputDialog,
+    QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget, QInputDialog, QTabWidget,
 )
 
 from baseline import load_report
@@ -18,6 +18,7 @@ from inventory import collect
 from safety import assess, details
 from diagnostics import capture
 from recovery_probe import test_probe
+from acceptance_ui import AcceptancePage
 
 
 class RecoveryWorker(QThread):
@@ -127,6 +128,11 @@ class InventoryWindow(QMainWindow):
         self.details.setMaximumHeight(175)
         layout.addWidget(self.details)
         self.statusBar().showMessage("Package-state baseline only; app data and firmware are not backed up.")
+        tabs = QTabWidget()
+        tabs.addTab(self.takeCentralWidget(), "Inventory and recovery test")
+        self.acceptance = AcceptancePage(self)
+        tabs.addTab(self.acceptance, "Acceptance checklist")
+        self.setCentralWidget(tabs)
 
     def choose_report(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open baseline", "", "JSON reports (*.json)")
