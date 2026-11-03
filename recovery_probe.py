@@ -36,6 +36,9 @@ def test_probe(adb, serial, journal_path):
             os.fsync(journal.fileno())
 
         record("start", device=serial, package=PACKAGE, user=0)
+        fingerprint = None
+        before = None
+        operation = None
         try:
             fingerprint = run(adb, serial, "shell", "getprop", "ro.build.fingerprint")
             if not fingerprint:
@@ -60,9 +63,33 @@ def test_probe(adb, serial, journal_path):
                    system_package_permission_verified=False,
                    stock_launcher_recovery_verified=False)
         except Exception as error:
-            record("stopped", error=str(error), recovery_preview=[
-                adb, "-s", serial, "shell", "pm", "enable", "--user", "0", PACKAGE])
-            raise
+            after = None
+            check_error = None
+            # Read only: do not attempt an automatic repair after a failed mutation.
+            # Avoid attributing another device's state to this test after reconnection.
+            try:
+                if not fingerprint or run(adb, serial, "shell", "getprop", "ro.build.fingerprint") != fingerprint:
+                    raise RuntimeError("Device identity could not be reverified")
+                after = state(adb, serial)
+            except Exception as verification_error:
+                check_error = str(verification_error)
+            denied = "SecurityException" in str(error) or "Permission Denial" in str(error)
+            recovery = ([adb, "-s", serial, "shell", "pm", "enable", "--user", "0", PACKAGE]
+                        if after in (2, 3, 4) else None)
+            unchanged = before is not None and after == before
+            record("stopped", error=str(error), blocked_operation=operation,
+                   permission_denied=denied, final_override=after,
+                   original_override_unchanged=unchanged, final_state_read_error=check_error,
+                   recovery_preview=recovery)
+            if unchanged:
+                observation = f"Final probe override is {after}, matching its original state. No recovery change is indicated."
+            elif after in (0, 1):
+                observation = f"Final probe override is {after} (default/explicit enabled); exact original override may differ."
+            elif recovery:
+                observation = f"Probe is verified disabled (override {after}). Inspect the audit's probe-only recovery preview; permission may still be denied."
+            else:
+                observation = "Final probe state could not be verified. Inspect the audit before any recovery operation."
+            raise RuntimeError(f"{error}\n{observation}") from error
 
 
 def main():

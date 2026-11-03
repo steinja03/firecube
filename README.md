@@ -214,3 +214,27 @@ Remaining full-scope blockers: actual Alexa cleanup, existing-app disabling and
 restoration, and verified Home-button replacement with recovery. The helper
 reports these as unresolved even if every manual launcher check passes. Nothing
 in this release disables Amazon home or modifies existing applications.
+
+
+## Root/firmware assessment and optional Home-redirect trial
+
+The user's scope now allows research into root and firmware options. See the
+[exact-device assessment](docs/definitive-options.md) for tested facts, source
+links and unresolved physical eligibility. The located software-root port guards
+build 688805020; this unit is 688806320. It must not be run with its guard removed.
+A tank bootloader-unlock route is documented but not verified for this physical
+unit; its scripts write boot-critical storage. LineageOS conversion has reported
+streaming limitations and is not a verified replacement for this keep list.
+
+[Download reversible Home Bridge trial](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/home-bridge-0.1.0/firecube-home-bridge-trial-0.1.0.zip)
+
+The optional trial uses a separate paused-by-default accessibility app. It asks
+for a typed confirmation, saves existing settings, adds only its service, verifies
+one Home event and attempts rollback on failure. It does not disable packages,
+remove Amazon home, change Alexa, obtain root or flash anything. Its receipt and
+result bundle keep successes, denials and unresolved rollback states distinct.
+No extra Python dependencies are needed beyond Python 3.13 and official ADB.
+Follow the [trial and rollback instructions](docs/home-bridge-trial.md). The APK
+build/lint/signature and mocked safety checks pass; physical compatibility and
+Windows execution remain unverified. A single successful redirect is not full
+home replacement, root, or a reboot/streaming acceptance result.

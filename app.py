@@ -190,8 +190,7 @@ class InventoryWindow(QMainWindow):
         self.statusBar().showMessage("Probe test stopped. Inspect its audit before another operation.")
         QMessageBox.warning(self, "Probe test stopped",
             f"{error}\nAudit: {path}\n"
-            "The probe may be disabled. Inspect the audit. Its recovery command is:\n"
-            f"adb -s {serial} shell pm enable --user 0 dev.firecube.probe")
+            "No further mutation was attempted. Review the final-state observation and audit before another device operation.")
 
     def open_report(self, path):
         try:

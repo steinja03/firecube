@@ -58,3 +58,44 @@ class ProbeTests(unittest.TestCase):
                 with self.assertRaises(FileExistsError):
                     test_probe("adb", "stick", path)
                 run.assert_not_called()
+
+    def test_permission_denial_checks_state_without_attempting_enable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "audit.jsonl"
+            mutations = []
+            def fake(adb, serial, *args):
+                if args[1] == "getprop":
+                    return "same-device"
+                if args[1] == "dumpsys":
+                    return "User 0: installed=true enabled=0"
+                mutations.append(args[2])
+                raise RuntimeError("java.lang.SecurityException: Permission Denial")
+            with patch("recovery_probe.run", side_effect=fake):
+                with self.assertRaisesRegex(RuntimeError, "matching its original state"):
+                    test_probe("adb", "stick", path)
+            self.assertEqual(mutations, ["disable-user"])
+            stopped = json.loads(path.read_text().splitlines()[-1])
+            self.assertTrue(stopped["permission_denied"])
+            self.assertTrue(stopped["original_override_unchanged"])
+            self.assertIsNone(stopped["recovery_preview"])
+
+    def test_failed_reenable_reports_verified_disabled_probe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "audit.jsonl"
+            override = 0
+            def fake(adb, serial, *args):
+                nonlocal override
+                if args[1] == "getprop":
+                    return "same-device"
+                if args[1] == "dumpsys":
+                    return f"User 0: installed=true enabled={override}"
+                if args[2] == "disable-user":
+                    override = 3
+                    return "Success"
+                raise RuntimeError("permission denied")
+            with patch("recovery_probe.run", side_effect=fake):
+                with self.assertRaisesRegex(RuntimeError, "verified disabled"):
+                    test_probe("adb", "stick", path)
+            stopped = json.loads(path.read_text().splitlines()[-1])
+            self.assertEqual(stopped["final_override"], 3)
+            self.assertEqual(stopped["recovery_preview"][-1], PACKAGE)
