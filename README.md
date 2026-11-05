@@ -226,7 +226,7 @@ A tank bootloader-unlock route is documented but not verified for this physical
 unit; its scripts write boot-critical storage. LineageOS conversion has reported
 streaming limitations and is not a verified replacement for this keep list.
 
-[Download reversible Home Bridge trial](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/home-bridge-0.1.0/firecube-home-bridge-trial-0.1.0.zip)
+[Download reversible Home Bridge trial](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/home-bridge-0.1.1/firecube-home-bridge-trial-0.1.1.zip)
 
 The optional trial uses a separate paused-by-default accessibility app. It asks
 for a typed confirmation, saves existing settings, adds only its service, verifies
@@ -238,3 +238,18 @@ Follow the [trial and rollback instructions](docs/home-bridge-trial.md). The APK
 build/lint/signature and mocked safety checks pass; physical compatibility and
 Windows execution remain unverified. A single successful redirect is not full
 home replacement, root, or a reboot/streaming acceptance result.
+
+
+### Home Bridge helper 0.1.1
+
+Fixes a legacy ADB install-handling bug: successful installs can emit file-push
+progress on stderr. The helper now uses exit status and explicit error markers,
+retains both streams for install diagnosis, and still rejects permission denials
+and zero-exit package failures. The bridge APK remains 0.1.0 with the same SHA-256;
+this is a Windows/Python helper fix, not a new Android behavior change.
+
+If a 0.1.0 receipt ended at install_intent/failed with only a file-push progress
+line, it did not reach accessibility writes. APK installation may have succeeded.
+Extract 0.1.1 into a new folder, keep the old receipt and rerun Run-Home-Bridge.cmd.
+The -r install uses the same signed APK; no Firecube update or full acceptance
+retest is needed. Share the new bridge-result ZIP to assess actual device behavior.

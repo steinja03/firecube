@@ -2,6 +2,7 @@ import hashlib
 import json
 from pathlib import Path
 import shlex
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -127,3 +128,13 @@ class BridgeTests(unittest.TestCase):
             self.execute()
         self.assertEqual(self.calls, [])
         self.assertEqual(self.receipt.read_text(), "original audit")
+
+    def test_full_trial_accepts_legacy_install_progress_via_actual_adb_wrapper(self):
+        def process(argv, **kwargs):
+            output = self.run_fake(argv[0], argv[2], *argv[3:])
+            progress = "C:\\Downloads\\bridge.apk: 1 file pushed, 0 skipped. 1.1 MB/s (840677 bytes in 0.704s)" if argv[3] == "install" else ""
+            return subprocess.CompletedProcess(argv, 0, output, progress)
+        digest = hashlib.sha256(self.apk.read_bytes()).hexdigest()
+        with patch("bridge_trial.APK_SHA256", digest), patch("inventory.subprocess.run", side_effect=process), patch("bridge_trial.time.sleep"):
+            apply_trial("adb", "stick", self.apk, self.receipt)
+        self.assertEqual(json.loads(self.receipt.read_text().splitlines()[-1])["event"], "complete")

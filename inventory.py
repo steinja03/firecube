@@ -31,11 +31,23 @@ def run(adb, serial, *arguments):
         [adb, "-s", serial, *arguments], capture_output=True,
         text=True, encoding="utf-8", errors="replace", timeout=45,
     )
-    if result.returncode or result.stderr.strip():
-        raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "ADB failed")
     output = result.stdout.strip()
-    if re.search(r"(?im)^(error:|error\b|exception|securityexception|/system/bin/sh:)", output):
-        raise RuntimeError(output)
+    diagnostic = "\n".join(value for value in (output, result.stderr.strip()) if value)
+    # Legacy ADB installs legitimately emit file-push progress on stderr. Error
+    # streams are not exit statuses; still reject device exceptions even if the
+    # old shell incorrectly returns zero, and preserve both streams on failure.
+    failure = re.search(
+        r"(?im)^\s*(?:error\b|exception\b|security\s+exception\b|"
+        r"(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*Exception\b|"
+        r"permission\s+(?:denied|denial)\b|failure\b|INSTALL_FAILED_\w+|"
+        r"/system/bin/sh:|adb(?:\.exe)?:\s*(?:error\b|failed\b|no devices\b))",
+        diagnostic,
+    )
+    if result.returncode or failure:
+        raise RuntimeError(diagnostic or "ADB failed")
+    if arguments and arguments[0] == "install":
+        # Install success may be printed on either stream by legacy ADB versions.
+        return diagnostic
     return output
 
 
