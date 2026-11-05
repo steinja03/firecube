@@ -272,3 +272,27 @@ queried through app_process at shell UID 2000. The container is not installed.
 The query gateway rejects all mutation method names. It reports individual query
 errors without claiming unsupported interfaces work. See
 [mechanism, evidence and instructions](docs/home-inspection.md).
+
+
+## Preferred Home trial from the confirmed permission/candidate report
+
+The user report now confirms the private Android 5.1 Home API is exposed,
+SET_PREFERRED_APPLICATIONS is effectively granted to the shell, and Firecube is
+an enabled Home candidate. Current preferred Home is null, saved Home filters are
+empty, and resolution still returns Amazon. These observations justify a guarded
+preferred-Home experiment; they do not prove the setter or physical Home works.
+
+[Download preferred-Home trial](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/preferred-home-0.1.0/firecube-preferred-home-trial-0.1.0.zip)
+
+Extract and run Set-Firecube-Home.cmd. Its typed confirmation approves only the
+fixed Firecube Home preference for user 0 and one injected Home test. It refuses
+existing Home/Firecube defaults, saves a device-bound baseline before mutation,
+verifies results and attempts scoped rollback if unsuccessful. The supplied
+Restore-Original-Home.cmd restores the query-visible original empty preference
+and Amazon fallback, provided no unrelated Firecube defaults were introduced.
+It never resets other apps' defaults or disables Amazon packages.
+
+No app installation, accessibility modification, root or firmware flashing is
+performed. Keep the local audit, remote backup and pointer file for restoration.
+The result ZIP is the single next evidence package. See
+[exact operation and rollback instructions](docs/preferred-home-trial.md).
