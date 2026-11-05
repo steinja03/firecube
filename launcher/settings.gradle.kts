@@ -4,3 +4,4 @@ rootProject.name = "FirecubeLauncher"
 include(":app")
 include(":probe")
 include(":bridge")
+include(":inspect")

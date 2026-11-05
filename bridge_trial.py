@@ -100,8 +100,9 @@ def write_setting(adb, serial, key, value, record):
     record("setting_intent", arguments=args)
     output = run(adb, serial, *args)
     actual = read_setting(adb, serial, key)
+    record("setting_readback", key=key, expected=value, actual=actual, output=output)
     if actual != value:
-        raise RuntimeError(f"Setting readback failed for {key}")
+        raise RuntimeError(f"Setting readback failed for {key}: expected {value!r}, observed {actual!r}")
     record("setting_verified", key=key, value=actual, output=output)
 
 

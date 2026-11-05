@@ -253,3 +253,22 @@ line, it did not reach accessibility writes. APK installation may have succeeded
 Extract 0.1.1 into a new folder, keep the old receipt and rerun Run-Home-Bridge.cmd.
 The -r install uses the same signed APK; no Firecube update or full acceptance
 retest is needed. Share the new bridge-result ZIP to assess actual device behavior.
+
+
+## Query-only Home API inspector
+
+The complete user trial showed service-list write/readback failure followed by
+verified restoration to the original empty list and disabled accessibility flag.
+No Home event was tested. The shell package also reports SET_PREFERRED_APPLICATIONS,
+which warrants inspecting the separate Android 5.1 preferred-Home API without
+calling a setter. This is a lead, not proof that Fire OS allows a default change.
+
+[Download Home Inspector](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/home-inspector-0.1.0/firecube-home-inspector-0.1.0.zip)
+
+Extract and run Run-Home-Inspector.cmd, then share the resulting home-inspection
+ZIP. No app installation, settings writes, Home key injection, root or firmware
+operation is performed. A verified code container is copied to /data/local/tmp and
+queried through app_process at shell UID 2000. The container is not installed.
+The query gateway rejects all mutation method names. It reports individual query
+errors without claiming unsupported interfaces work. See
+[mechanism, evidence and instructions](docs/home-inspection.md).
