@@ -314,3 +314,29 @@ It installs nothing, changes no system settings, and stops automatically.
 Amazon Home normally returns once monitoring ends. This is an unverified,
 PC-dependent experiment, not autonomous startup, Alexa removal or root.
 See [details and current firmware constraints](docs/home-event-trial.md).
+
+
+## Device-side Home candidate and optional reboot startup
+
+[Download the combined observer + boot-controller bundle](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/device-observer-0.1.0/firecube-device-home-candidate-0.1.0.zip)
+
+The user's last event trial verified two Home redirects before its PC stream
+closed. This candidate moves the observer onto the Stick, isolates its Unix
+session, verifies a device-side Home test, and supplies Start, Stop and Status
+commands. A locked runtime directory, duplicate-process lock, foreground checks,
+loop protection and bounded stream reconnection are included. No root or package
+disabling is performed. The launcher does not need another upgrade.
+
+Start-Device-Observer.cmd performs setup and verification for this boot. Test
+with the PC disconnected before calling it independent. Install-Boot-Helper.cmd
+optionally installs Firecube Home Controller; on-TV Pair / Start requests a
+separate local ADB authorization. Boot start defaults off and must be enabled
+explicitly after pairing. The helper connects only to 127.0.0.1:5555, retains a
+private RSA key, and uses only fixed observer control commands. That key grants
+ADB shell trust; it is not a cloud permission or a root grant.
+
+Disconnect the PC, test streaming/Home, then enable the optional controller and
+test a normal reboot. Reconnect for Observer-Status.cmd reports. New device-side,
+local-pairing and reboot behavior remain unverified until those results return.
+Amazon/Alexa removal remains blocked by the existing privilege limitations.
+See [combined setup, acceptance and recovery](docs/device-observer.md).

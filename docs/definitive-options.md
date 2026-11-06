@@ -132,6 +132,18 @@ accessibility activation or preferred-Home write. It is not a root replacement,
 Alexa removal, autonomous launcher or proof of reboot persistence. Published
 GhostLock sources rechecked afterward still restrict their build to 688805020.
 
+## Device observer candidate after event success
+
+The subsequent PC event report verified two redirects and Firecube foreground
+observations, then ended on a closed log stream. It establishes a usable Home
+redirection mechanism during that trial. The new [device observer candidate](device-observer.md)
+moves the stream and redirection onto a detached shell session and adds optional,
+explicit local-ADB pairing for reboot startup. This is a new mechanism beyond
+static Home preference/accessibility writes, not confirmation that they work.
+The paired controller has the same shell privileges: it cannot bypass the
+component-disable denial. Device independence, local pairing and reboot have
+not yet been verified. No root/firmware operation has been performed.
+
 ## Earlier verdict (before the two trials above)
 
 Full Amazon removal is NOT verified on this exact unit. Known ADB mutations are
