@@ -117,7 +117,22 @@ compatibility/setup limitations. Therefore this is not an established way to
 preserve this user's eight working streaming services. It is a separate tradeoff,
 not the recommended first route for a daily streaming device.
 
-## Current verdict
+## Subsequent device evidence and current next step
+
+The Home Bridge settings write failed its readback and verified rollback to
+empty/0; its service stayed paused. The direct preferred-Home trial later
+successfully saved Firecube's Home preference, while resolveIntent continued
+returning Amazon. It verified rollback to no preferred Home and the original
+Amazon resolution. No injected Home key was tested with the preference active.
+These are separate results, not evidence that shell lacked the preference grant.
+
+The next independent trial is the bounded, PC-assisted activity-event observer:
+[operation, limitations and instructions](home-event-trial.md). It requires no
+accessibility activation or preferred-Home write. It is not a root replacement,
+Alexa removal, autonomous launcher or proof of reboot persistence. Published
+GhostLock sources rechecked afterward still restrict their build to 688805020.
+
+## Earlier verdict (before the two trials above)
 
 Full Amazon removal is NOT verified on this exact unit. Known ADB mutations are
 blocked; the discovered software exploit excludes this build; hardware unlock

@@ -296,3 +296,21 @@ No app installation, accessibility modification, root or firmware flashing is
 performed. Keep the local audit, remote backup and pointer file for restoration.
 The result ZIP is the single next evidence package. See
 [exact operation and rollback instructions](docs/preferred-home-trial.md).
+
+
+## Next Home mechanism: PC-assisted activity events
+
+The preferred-Home setter accepted Firecube, but Home resolution stayed Amazon;
+the trial verified rollback. The accessibility trial also restored its baseline.
+The independent next experiment watches fresh user-0 Amazon Home resume events
+via ADB and explicitly opens Firecube only while Amazon Home is foreground.
+
+[Download the Home event trial](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/home-events-0.1.0/firecube-home-events-trial-0.1.0.zip)
+
+Extract and run Test-Home-Events.cmd. Review and type TEST HOME EVENTS. Keep the
+PC connected for the approximately 90-second trial; after automatic success,
+try remote Home from a streaming app. Upload the home-events-result ZIP.
+It installs nothing, changes no system settings, and stops automatically.
+Amazon Home normally returns once monitoring ends. This is an unverified,
+PC-dependent experiment, not autonomous startup, Alexa removal or root.
+See [details and current firmware constraints](docs/home-event-trial.md).
