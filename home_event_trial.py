@@ -36,6 +36,19 @@ def resumed_component(text):
     return match[1] if match else None
 
 
+def wait_for_firecube(foreground, attempts=24):
+    observations = []
+    for attempt in range(attempts):
+        current = foreground()
+        if not observations or observations[-1] != current:
+            observations.append(current)
+        if current in (TARGET, 'dev.firecube.launcher/dev.firecube.launcher.MainActivity'):
+            return True, observations
+        if attempt + 1 < attempts:
+            time.sleep(0.25)
+    return False, observations
+
+
 class Redirector:
     def __init__(self, foreground, launch, record, now=time.monotonic):
         self.foreground, self.launch, self.record, self.now = foreground, launch, record, now
@@ -75,16 +88,25 @@ def check_device(adb, serial):
 
 def trial(adb, serial, record):
     check_device(adb, serial)
+    last_snapshot = [None]
     def foreground():
-        return resumed_component(run(adb, serial, 'shell', 'dumpsys', 'activity', 'activities'))
+        text = run(adb, serial, 'shell', 'dumpsys', 'activity', 'activities')
+        lines = [line.strip()[:1000] for line in text.splitlines() if 'mResumedActivity' in line][:8]
+        if lines != last_snapshot[0]:
+            record('foreground_snapshot', resumed_lines=lines)
+            last_snapshot[0] = lines
+        return resumed_component(text)
     def launch():
-        run(adb, serial, 'shell', 'am', 'start', '--user', '0', '-n', TARGET, '-f', '0x10200000')
+        output = run(adb, serial, 'shell', 'am', 'start', '--user', '0', '-n', TARGET, '-f', '0x10200000')
+        record('explicit_launch_result', output=output[:2000])
     record('scope', settings_written=False, packages_disabled=False, installed_apps=False,
            device_background_service=False, pc_connection_required=True, duration_seconds=90)
     # Explicit opening proves availability only; it is never counted as Home success.
     launch()
-    if foreground() not in (TARGET, 'dev.firecube.launcher/dev.firecube.launcher.MainActivity'):
-        raise RuntimeError('Firecube did not open; Home test not started')
+    seen, observations = wait_for_firecube(foreground)
+    record('initial_launch_observation', firecube_foreground=seen, foreground_transitions=observations)
+    if not seen:
+        raise RuntimeError('Firecube foreground not verified after 24 checks; Home test not started')
     lines = Queue(maxsize=4096)
     overflow = threading.Event()
     marker = secrets.token_hex(16)
@@ -140,13 +162,9 @@ def trial(adb, serial, record):
             if line is None:
                 raise RuntimeError('Log stream closed; monitor stopped')
             if redirector.handle(line):
-                seen = False
-                for _ in range(8):
-                    if foreground() in (TARGET, 'dev.firecube.launcher/dev.firecube.launcher.MainActivity'):
-                        seen = True
-                        break
-                    time.sleep(0.25)
-                record('redirect_observation', firecube_foreground=seen, number=redirector.count)
+                seen, observations = wait_for_firecube(foreground)
+                record('redirect_observation', firecube_foreground=seen, number=redirector.count,
+                       foreground_transitions=observations)
                 if not seen:
                     raise RuntimeError('Launch request did not put Firecube in foreground')
                 if not automatic_passed:

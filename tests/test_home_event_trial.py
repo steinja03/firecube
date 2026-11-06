@@ -93,3 +93,36 @@ class HomeEventTests(unittest.TestCase):
         self.assertIn('automatic_home_test_passed', events)
         self.assertIn('pc_logcat_client_stopped', events)
         self.assertEqual(sum('am' in call.args for call in calls), 2)
+
+    def test_delayed_launch_waits_instead_of_failing_on_first_snapshot(self):
+        foreground = Mock(side_effect=[HOME, None, t.TARGET])
+        with patch.object(t.time, 'sleep') as sleep:
+            seen, observations = t.wait_for_firecube(foreground)
+        self.assertTrue(seen)
+        self.assertEqual(observations, [HOME, None, t.TARGET])
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_launch_timeout_preserves_evidence_and_is_bounded(self):
+        foreground = Mock(return_value=HOME)
+        with patch.object(t.time, 'sleep') as sleep:
+            seen, observations = t.wait_for_firecube(foreground)
+        self.assertFalse(seen)
+        self.assertEqual(observations, [HOME])
+        self.assertEqual(foreground.call_count, 24)
+        self.assertEqual(sleep.call_count, 23)
+
+    def test_initial_failure_records_actual_foreground_without_starting_monitor(self):
+        records = []
+        def adb(adb, serial, *args):
+            if args == ('shell', 'dumpsys', 'activity', 'activities'):
+                return 'mResumedActivity: ActivityRecord{a u0 ' + HOME + ' t9}'
+            return 'Starting: Intent { cmp=dev.firecube.launcher/.MainActivity }'
+        with patch.object(t, 'check_device'), patch.object(t, 'run', side_effect=adb), \
+             patch.object(t.time, 'sleep'), patch.object(t.subprocess, 'Popen') as stream:
+            with self.assertRaisesRegex(RuntimeError, '24 checks'):
+                t.trial('adb', 'stick', lambda event, **fields: records.append((event, fields)))
+            stream.assert_not_called()
+        self.assertEqual(records[-1][0], 'initial_launch_observation')
+        self.assertEqual(records[-1][1]['foreground_transitions'], [HOME])
+        self.assertEqual(records[1][0], 'explicit_launch_result')
+        self.assertIn('foreground_snapshot', [row[0] for row in records])

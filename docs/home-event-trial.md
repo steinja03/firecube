@@ -78,3 +78,17 @@ https://github.com/Anezium/ghostlock-firetv-tank/blob/main/scripts/gl_root.py
 The previously identified Amonet hardware route remains a physical eligibility
 question. This software trial cannot establish board/bootrom accessibility and
 performs no exploit, downgrade, preloader/RPMB write or firmware flash.
+
+
+## Version 0.1.1: initial-launch timing and evidence
+
+The first returned 0.1.0 report stopped at the initial foreground check, before
+starting logcat or injecting Home. It therefore did not test event redirection
+or establish why Netflix returned to Amazon. The helper checked immediately
+after an asynchronous launch request; a timing race is possible, not proven.
+Version 0.1.1 polls up to 24 times with 250 ms between checks, records the launch
+command's result, observed foreground transitions and relevant resumed-activity
+lines, and still refuses to arm the Home test unless Firecube is verified.
+The same wait is used after redirects. The result can include app component
+names and launch output; review before sharing. No app data or full logs are
+collected. Wait for the automatic-success message before testing Netflix/Home.

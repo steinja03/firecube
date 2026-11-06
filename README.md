@@ -305,7 +305,7 @@ the trial verified rollback. The accessibility trial also restored its baseline.
 The independent next experiment watches fresh user-0 Amazon Home resume events
 via ADB and explicitly opens Firecube only while Amazon Home is foreground.
 
-[Download the Home event trial](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/home-events-0.1.0/firecube-home-events-trial-0.1.0.zip)
+[Download the Home event trial](https://github.com/steinja03/firecube/raw/refs/heads/main/downloads/home-events-0.1.1/firecube-home-events-trial-0.1.1.zip)
 
 Extract and run Test-Home-Events.cmd. Review and type TEST HOME EVENTS. Keep the
 PC connected for the approximately 90-second trial; after automatic success,
